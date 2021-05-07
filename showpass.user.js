@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ShowPass
 // @namespace    bitst0rm
-// @version      0.0.7
+// @version      0.0.8
 // @description  Show password as plain text in password fields
 // @author       bitst0rm
 // @license      GPLv3
@@ -9,7 +9,7 @@
 // @downloadURL  https://github.com/bitst0rm-pub/ShowPass/raw/master/showpass.user.js
 // @icon         https://github.com/bitst0rm-pub/ShowPass/raw/master/logo.png
 // @include      *
-// @run-at       document-start
+// @run-at       document-idle
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
@@ -316,7 +316,7 @@
         t.style.fontWeight = '';
     }
 
-    function init(body) {
+    function showPass(node) {
         var isHide = true;
         var _toggle = function(e) {
             if (e.keyCode === 17) {
@@ -333,7 +333,7 @@
             isHide = true;
         };
 
-        var inputs = body.querySelectorAll('input[type=password]');
+        var inputs = node.querySelectorAll('input[type=password]');
         if (!inputs.length) return;
 
         for (var j = 0; j < inputs.length; j++) {
@@ -367,35 +367,6 @@
         }
     }
 
-    var MutationObserver = win.MutationObserver || win.WebKitMutationObserver;
-    var doc = win.document;
-    if (MutationObserver) {
-        var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                var node;
-                for (var i = 0; i < mutation.addedNodes.length; i++) {
-                    node = mutation.addedNodes[i];
-                    if (node.nodeName === 'IFRAME') {
-                        var parser = document.createElement('a');
-                        parser.href = node.src;
-                        HOST = parser.hostname;
-
-                        if (blacklist(EXCLSHOW)) continue;
-                        if (node.contentDocument && node.contentDocument.body) init(node.contentDocument.body);
-                    } else {
-                        HOST = win.location.hostname;
-                        if (doc && doc.body) init(doc.body);
-                    }
-                }
-            });
-        });
-
-        observer.observe(doc.documentElement, {
-            childList: true,
-            subtree: true
-        });
-    }
-
     win.addEventListener('resize', function() {
         var bars = document.getElementsByClassName('progress-bar-' + UID);
         for (var i = 0; i < bars.length; i++) {
@@ -404,4 +375,69 @@
             bar.style.width = input.offsetWidth + 'px';
         }
     });
+
+    function domWatcher() {
+        var queue = [];
+        var ignoreTags = ['br', 'head', 'link', 'meta', 'script', 'style'];
+
+        var Watch = win.MutationObserver || win.WebKitMutationObserver;
+        var observer = new Watch(function(mutations) {
+            if (!queue.length) requestAnimationFrame(process);
+            queue.push(mutations);
+        });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        function process() {
+            for (var i = 0; i < queue.length; i++) {
+                var mutations = queue[i];
+                for (var j = 0; j < mutations.length; j++) {
+                    var mutation = mutations[j];
+                    if (mutation.type === 'childList') {
+                        var addedNodes = mutation.addedNodes;
+                        for (var n = 0; n < addedNodes.length; n++) {
+                            var node = addedNodes[n];
+                            if (node.nodeType !== 1) continue;
+                            if (ignoreTags.indexOf(node.localName) !== -1) continue;
+                            if (node.parentElement === null) continue;
+                            dom(node);
+                        }
+                    }
+                }
+            }
+            queue.length = 0;
+        }
+
+        function dom(node) {
+            node.nodeName === 'IFRAME' ? frame(node) : page(node);
+        }
+    }
+
+    function frame(node) {
+        var frame = node.contentDocument || node.contentWindow.document;
+        var url = new URL(frame.location.href);
+        HOST = url.hostname;
+
+        if (blacklist(EXCLSHOW)) return;
+        showPass(frame.body);
+    }
+
+    function page(node) {
+        HOST = win.location.hostname;
+        showPass(node.parentNode);
+    }
+
+    function init() {
+        page(document.body);
+
+        var nodes = document.querySelectorAll('iframe');
+        for (var i = 0; i < nodes.length; i++) {
+            frame(nodes[i]);
+        }
+        domWatcher();
+    }
+
+    init();
 })(this);
