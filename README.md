@@ -7,11 +7,15 @@ This userscript will show you the password in plain-text that is hidden behind a
 - Provide graphical password strength estimator
 - Blacklist websites
 - Support showing password in same-domain iFrames <br/>
-*Note: Cross-domain iFrames not supported due to CORS policy.*
+*Note: Cross-domain iFrames ~~not supported~~ impossible due to CORS policy.*
 
 ### Security Concerns
 
-This script does not and will never store, record, copy, send and spy your passwords.<br/>
+This script does not and will never:
+- store, record, copy, send and spy your passwords and data.
+- embed any kind of analytic and tracking hooks in its code.
+- communicate with any server.<br/>
+
 Just feel free to take a look at the [sourcecode](https://github.com/bitst0rm-pub/ShowPass/) to know how it works.
 
 ### Compatibility
