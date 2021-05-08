@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ShowPass
 // @namespace    bitst0rm
-// @version      0.0.9
+// @version      0.0.10
 // @description  Show password as plain text in password fields
 // @author       bitst0rm
 // @license      GPLv3
@@ -43,7 +43,6 @@
     var DISTANCE = 'idDistance';
     var UID = 'showpass-' + Math.random().toString(36).slice(8);
     var RANDOM = null;
-    var HOST = null;
 
     var config = {};
     config[MOUSEOVER] = true;
@@ -129,17 +128,13 @@
         '.progress-bar-' + UID + '[value="5"]::-moz-progress-bar{border-radius:1em;background-color:#28a745;}' +
         '#br-' + UID + '{display:block;content:"";margin:0px;line-height:0px;}';
 
-    if (GM_getValue(PROGRESS)) {
-        GM_addStyle(css);
-    }
-
-    function blacklist(type) {
+    function blacklist(type, host) {
         var txt = GM_getValue(type);
         var lines = txt.split('\n');
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i];
             var re = new RegExp(line);
-            if (line && re.test(HOST)) return true;
+            if (line && re.test(host)) return true;
         }
         return false;
     }
@@ -151,10 +146,10 @@
                 /[A-Z]/.test(pw) + /* a upper letter */
                 /\d/.test(pw) + /* a digit */
                 /[^A-Za-z0-9]/.test(pw))) - /* a special character */
-                /(.)\1{2,}/.test(pw); /* a same char 3 times or more */
+            /(.)\1{2,}/.test(pw); /* a same char 3 times or more */
     }
 
-    function distance(input) {
+    function distance(input, host) {
         var txt = GM_getValue(DISTANCE);
         var lines = txt.split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -167,7 +162,7 @@
                 continue;
             }
             var re = new RegExp(hostname);
-            if (hostname && re.test(HOST)) {
+            if (hostname && re.test(host)) {
                 var a = null;
                 var b = null;
                 var c = 0;
@@ -190,7 +185,7 @@
         return false;
     }
 
-    function progress(input) {
+    function progress(input, host) {
         RANDOM = Math.random().toString(36).slice(2);
         input.style.setProperty('margin-bottom', '0px', 'important');
         var inputWidth = input.offsetWidth;
@@ -214,7 +209,7 @@
         pgr.style.padding = '0px';
         pgr.style.verticalAlign = 'top';
 
-        var arr = distance(input);
+        var arr = distance(input, host);
         if (arr) {
             arr[0].insertBefore(div, arr[1].nextSibling);
         } else {
@@ -231,8 +226,8 @@
         return pgr;
     }
 
-    function update(input) {
-        var pgr = progress(input);
+    function update(input, host) {
+        var pgr = progress(input, host);
         var c = 0;
         var check = setInterval(function() {
             if (c === 20) clearInterval(check);
@@ -287,10 +282,6 @@
         });
     }
 
-    GM_registerMenuCommand('Configure', cfg, 'C');
-    HOST = win.location.hostname;
-    if (blacklist(EXCLSHOW)) return;
-
     function setCaretToEnd(e) {
         setTimeout((function() {
             var t = e.target;
@@ -316,7 +307,7 @@
         t.style.fontWeight = '';
     }
 
-    function showPass(node) {
+    function showPass(node, host) {
         var isHide = true;
         var _toggle = function(e) {
             if (e.keyCode === 17) {
@@ -360,8 +351,8 @@
                     input.addEventListener('blur', _hide, false);
                 }
                 if (GM_getValue(PROGRESS)) {
-                    if (blacklist(EXCLSTRENGTH)) continue;
-                    update(input);
+                    if (blacklist(EXCLSTRENGTH, host)) continue;
+                    update(input, host);
                 }
             }
         }
@@ -403,40 +394,41 @@
                             if (node.nodeType !== 1) continue;
                             if (ignoreTags.indexOf(node.localName) !== -1) continue;
                             if (node.parentElement === null) continue;
-                            dom(node);
+                            if (node.nodeName === 'IFRAME') {
+                                goFrame(node);
+                            } else {
+                                goPage(node);
+                            }
                         }
                     }
                 }
             }
             queue.length = 0;
         }
-
-        function dom(node) {
-            node.nodeName === 'IFRAME' ? frame(node) : page(node);
-        }
     }
 
-    function frame(node) {
+    function goFrame(node) {
         var frame = node.contentDocument || node.contentWindow.document;
-        var url = new URL(frame.location.href);
-        HOST = url.hostname;
-
-        if (blacklist(EXCLSHOW)) return;
-        showPass(frame.body);
+        if (blacklist(EXCLSHOW, frame.location.hostname)) return;
+        showPass(frame.body, frame.location.hostname);
     }
 
-    function page(node) {
-        HOST = win.location.hostname;
-        showPass(node.parentNode);
+    function goPage(node) {
+        showPass(node, win.location.hostname);
     }
 
     function init() {
-        page(document.body);
+        GM_registerMenuCommand('Configure', cfg, 'C');
+        if (blacklist(EXCLSHOW, win.location.hostname)) return;
+
+        if (GM_getValue(PROGRESS)) GM_addStyle(css);
+        goPage(document.body);
 
         var nodes = document.querySelectorAll('iframe');
         for (var i = 0; i < nodes.length; i++) {
-            frame(nodes[i]);
+            goFrame(nodes[i]);
         }
+
         domWatcher();
     }
 
