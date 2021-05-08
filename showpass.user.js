@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ShowPass
 // @namespace    bitst0rm
-// @version      0.0.8
+// @version      0.0.9
 // @description  Show password as plain text in password fields
 // @author       bitst0rm
 // @license      GPLv3
@@ -385,7 +385,8 @@
             if (!queue.length) requestAnimationFrame(process);
             queue.push(mutations);
         });
-        observer.observe(document.body, {
+        var container = document.documentElement || document.body;
+        observer.observe(container, {
             childList: true,
             subtree: true
         });
